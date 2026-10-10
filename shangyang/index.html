@@ -119,8 +119,7 @@ button.b:hover,button.b:focus-visible{border-color:var(--accent);color:var(--acc
       <section class="panel">
         <div class="kpis">
           <div class="kpi"><div class="k">自備款</div><div class="v" id="kOwn">—</div><div class="s" id="kOwnP"></div></div>
-          <div class="kpi"><div class="k">交屋款</div><div class="v" id="kHand">—</div><div class="s" id="kHandP"></div></div>
-          <div class="kpi"><div class="k">銀行貸款</div><div class="v" id="kLoan">—</div><div class="s" id="kLoanP"></div></div>
+          <div class="kpi"><div class="k">銀行貸款＋核稅款</div><div class="v" id="kLoan">—</div><div class="s" id="kLoanP"></div></div>
           <div class="kpi main"><div class="k">每月房貸（30 年／40 年）</div><div class="v" id="kMonth">—</div><div class="s" id="kMonthS"></div></div>
           <div class="kpi main"><div class="k">新青安前 3 年月付（30 年／40 年）</div><div class="v" id="kYouth">—</div><div class="s" id="kYouthS"></div></div>
         </div>
@@ -138,7 +137,7 @@ button.b:hover,button.b:focus-visible{border-color:var(--accent);color:var(--acc
       </section>
 
       <section class="panel">
-        <h2>交屋後房貸月付（貸款＋交屋款，本息平均攤還）</h2>
+        <h2>交屋後房貸月付（貸款＋核稅款，本息平均攤還）</h2>
         <div class="cmp" id="cmp"></div>
         <p class="note">月付金四捨五入至元，實際以銀行核貸條件為準。本試算僅供參考，金額以買賣契約為準。</p>
       </section>
@@ -226,18 +225,17 @@ function calc(){
   ];
   const w=x=>(Math.round(x*10000)/10000).toLocaleString('zh-TW',{maximumFractionDigits:4});
   let h='';
-  rows.forEach((r,i)=>{const c=i===0?`<td rowspan="2" class="merged">${pct(rows[0][2]+rows[1][2],priceW)}</td>`:i===1?'':`<td>${pct(r[2],priceW)}</td>`;h+=`<tr><td>${r[0]}</td>${c}<td>${w(r[2])}</td></tr>`});
-  h+=`<tr class="loan"><td>銀行貸款</td><td>${pct(loanW,priceW)}</td><td>${w(loanW)}</td></tr>`;
+  const loanRow=`<tr class="loan"><td>銀行貸款</td><td>${pct(loanW,priceW)}</td><td>${w(loanW)}</td></tr>`;
+  rows.forEach((r,i)=>{if(r[0]==='交屋款')h+=loanRow;const c=i===0?`<td rowspan="2" class="merged">${pct(rows[0][2]+rows[1][2],priceW)}</td>`:i===1?'':`<td>${pct(r[2],priceW)}</td>`;h+=`<tr${r[0]==='核稅款'?' class="loan"':''}><td>${r[0]}</td>${c}<td>${w(r[2])}</td></tr>`});
   h+=`<tr class="tot"><td>合計</td><td>100%</td><td>${w(priceW)}</td></tr>`;
   rows.forEach(r=>r[2]=Math.round(r[2]*10000));
   $('tbody').innerHTML=h;
 
-  const hand=Math.round(handoverW*10000), own=price-loan-hand;
+  const hand=Math.round(handoverW*10000), tax=Math.round(taxW*10000), loanTax=loan+tax, own=price-loanTax;
   $('kOwn').textContent=wan(own);$('kOwnP').textContent=fmt(own)+' 元（'+pct(own,price)+'）';
-  $('kHand').textContent=wan(hand);$('kHandP').textContent=fmt(hand)+' 元（'+pct(hand,price)+'）';
-  $('kLoan').textContent=wan(loan);$('kLoanP').textContent=fmt(loan)+' 元（'+pct(loan,price)+'）';
+  $('kLoan').textContent=wan(loanTax);$('kLoanP').textContent=fmt(loanTax)+' 元（'+pct(loan,price)+'＋'+pct(tax,price)+'）';
 
-  const base=loan+hand;  // 房貸以 銀行貸款＋交屋款 計算
+  const base=loanTax;  // 房貸以 銀行貸款＋核稅款 計算
   const terms=[30,40].map(y=>{const m=Math.round(pmt(base,rate,y));const tot=m*y*12;return {y,m,tot,int:tot-base}});
   $('kMonth').textContent=fmt(terms[0].m)+'／'+fmt(terms[1].m);
   $('kMonthS').textContent=`元／月，年利率 ${rate}%`;
@@ -245,7 +243,7 @@ function calc(){
   $('cmp').innerHTML=terms.map(t=>`<div class="term">
     <div class="yr">${t.y} 年（${t.y*12} 期）</div>
     <div class="pay">${fmt(t.m)} <small>元／月</small></div>
-    <dl><dt>貸款＋交屋款</dt><dd>${fmt(base)}</dd><dt>利息總額（約）</dt><dd>${fmt(t.int)}</dd><dt>本利總繳（約）</dt><dd>${fmt(t.tot)}</dd></dl>
+    <dl><dt>貸款＋核稅款</dt><dd>${fmt(base)}</dd><dt>利息總額（約）</dt><dd>${fmt(t.int)}</dd><dt>本利總繳（約）</dt><dd>${fmt(t.tot)}</dd></dl>
   </div>`).join('');
 
   const cap=parseInt($('yCap').value)*10000;
@@ -253,20 +251,20 @@ function calc(){
   const yt={30:youthPays(yPart,30),40:youthPays(yPart,40)};
   const ex={30:Math.round(pmt(extra,rate,30)),40:Math.round(pmt(extra,rate,40))};
   const yn=$('yNote'); yn.hidden=!extra;
-  if(extra) yn.textContent=`貸款＋交屋款 ${wan(base)}，超過新青安額度 ${wan(cap)}。超出的 ${wan(extra)} 以一般利率 ${rate}% 計算（30 年每月 ${fmt(ex[30])} 元、40 年每月 ${fmt(ex[40])} 元），下表月付為兩筆合計。`;
+  if(extra) yn.textContent=`貸款＋核稅款 ${wan(base)}，超過新青安額度 ${wan(cap)}。超出的 ${wan(extra)} 以一般利率 ${rate}% 計算（30 年每月 ${fmt(ex[30])} 元、40 年每月 ${fmt(ex[40])} 元），下表月付為兩筆合計。`;
   const yTerms=[30,40].map(y=>({y,list:yt[y].map(v=>v+ex[y])}));
   $('ybody').innerHTML=YS.map((seg,i)=>`<tr><td>${seg.label}</td><td>${seg.r}%</td><td>${fmt(yTerms[0].list[i])}</td><td>${fmt(yTerms[1].list[i])}</td></tr>`).join('');
   $('kYouth').textContent=fmt(yTerms[0].list[0])+'／'+fmt(yTerms[1].list[0]);
   $('kYouthS').textContent='元／月，前 3 年 1.775%';
-  summary={price,rows,loan,own,hand,base,rate,terms,yPart,extra,yTerms};
+  summary={price,rows,loan,own,hand,loanTax,base,rate,terms,yPart,extra,yTerms};
 }
 
 $('copyBtn').onclick=async()=>{
   const s=summary;if(!s)return;
   let t=`房屋總價：${wan(s.price)}元\n`;
-  s.rows.forEach(r=>t+=`${r[0]}：${wan(r[2])}元\n`);
-  t+=`銀行貸款（${pct(s.loan,s.price)}）：${wan(s.loan)}元\n自備款（${pct(s.own,s.price)}）：${wan(s.own)}元\n交屋款（${pct(s.hand,s.price)}）：${wan(s.hand)}元\n`;
-  t+=`房貸試算金額（貸款＋交屋款）：${wan(s.base)}元\n房貸年利率 ${s.rate}%，本息平均攤還\n`;
+  s.rows.forEach(r=>{if(r[0]==='交屋款')t+=`銀行貸款（${pct(s.loan,s.price)}）：${wan(s.loan)}元\n`;t+=`${r[0]}：${wan(r[2])}元\n`});
+  t+=`自備款（${pct(s.own,s.price)}）：${wan(s.own)}元\n銀行貸款＋核稅款（${pct(s.loanTax,s.price)}）：${wan(s.loanTax)}元\n`;
+  t+=`房貸試算金額（貸款＋核稅款）：${wan(s.base)}元\n房貸年利率 ${s.rate}%，本息平均攤還\n`;
   s.terms.forEach(x=>t+=`${x.y} 年：每月約 ${fmt(x.m)} 元\n`);
   t+=`新青安 3.0（額度 ${wan(s.yPart)}${s.extra?`，超出 ${wan(s.extra)} 以 ${s.rate}% 計入`:''}）\n`;
   YS.forEach((seg,i)=>t+=`${seg.label}（${seg.r}%）：30 年每月約 ${fmt(s.yTerms[0].list[i])} 元／40 年每月約 ${fmt(s.yTerms[1].list[i])} 元\n`);
